@@ -8,6 +8,9 @@
 package com.easypost.net;
 
 import com.easypost.EasyPost;
+import com.easypost.easyvcr.VCR;
+import com.easypost.easyvcr.VCRException;
+import com.easypost.easyvcr.clients.httpurlconnection.RecordableURL;
 import com.easypost.exception.EasyPostException;
 import com.easypost.model.Event;
 import com.easypost.model.EventDeserializer;
@@ -23,6 +26,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -121,9 +125,9 @@ public abstract class EasyPostResource {
         return headers;
     }
 
-    private static javax.net.ssl.HttpsURLConnection createEasyPostConnection(final String url, final String apiKey)
+    private static javax.net.ssl.HttpsURLConnection createEasyPostConnection(final String url, final String apiKey, final String method, final VCR vcr)
             throws IOException {
-        URL easypostURL = null;
+        HttpsURLConnection conn = null;
         String customURLStreamHandlerClassName = System.getProperty(CUSTOM_URL_STREAM_HANDLER_PROPERTY_NAME, null);
         if (customURLStreamHandlerClassName != null) {
             // instantiate the custom handler provided
@@ -133,7 +137,8 @@ public abstract class EasyPostResource {
                         (Class<URLStreamHandler>) Class.forName(customURLStreamHandlerClassName);
                 Constructor<URLStreamHandler> constructor = clazz.getConstructor();
                 URLStreamHandler customHandler = constructor.newInstance();
-                easypostURL = new URL(null, url, customHandler);
+                URL urlObj = new URL(null, url, customHandler);
+                conn = (javax.net.ssl.HttpsURLConnection) urlObj.openConnection();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
             } catch (SecurityException e) {
@@ -149,11 +154,20 @@ public abstract class EasyPostResource {
             } catch (InvocationTargetException e) {
                 throw new IOException(e);
             }
+        } else if (vcr != null) {
+            // TODO: Unfortunately, this makes EasyVCR a main dependency for the CL, not just a test dependency.
+            try {
+                RecordableURL recordableURL = EasyPost.vcr.getHttpUrlConnection(url);
+                conn = recordableURL.openConnectionSecure();
+            } catch (VCRException vcrException) {
+                throw new IOException(vcrException);
+            }
         } else {
-            easypostURL = new URL(url);
+            URL urlObj = new URL(null, url);
+            conn = (javax.net.ssl.HttpsURLConnection) urlObj.openConnection();
         }
-        javax.net.ssl.HttpsURLConnection conn = (javax.net.ssl.HttpsURLConnection) easypostURL.openConnection();
         conn.setConnectTimeout(getConnectTimeoutMilliseconds());
+        conn.setRequestMethod(method);
 
         int readTimeout;
         if (EasyPost.readTimeout != 0) {
@@ -191,34 +205,40 @@ public abstract class EasyPostResource {
     }
 
     private static javax.net.ssl.HttpsURLConnection createGetConnection(final String url, final String query,
-                                                                        final String apiKey) throws IOException {
-        String getURL = String.format("%s?%s", url, query);
-        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(getURL, apiKey);
+                                                                        final String apiKey, final VCR vcr) throws IOException {
+        String getURL = url;
+        if (query != null) {
+            getURL = String.format("%s?%s", url, query);
+        }
+        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(getURL, apiKey, "GET", vcr);
         conn.setRequestMethod("GET");
         return conn;
     }
 
     private static javax.net.ssl.HttpsURLConnection createPostConnection(final String url, final JsonObject body,
-                                                                         final String apiKey) throws IOException {
-        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(url, apiKey);
+                                                                         final String apiKey, final VCR vcr) throws IOException {
+        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(url, apiKey, "POST", vcr);
         conn.setRequestMethod("POST");
         conn = writeBody(conn, body);
         return conn;
     }
 
     private static javax.net.ssl.HttpsURLConnection createDeleteConnection(final String url, final String query,
-                                                                           final String apiKey) throws IOException {
-        String deleteUrl = String.format("%s?%s", url, query);
-        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(deleteUrl, apiKey);
+                                                                           final String apiKey, final VCR vcr) throws IOException {
+        String deleteUrl = url;
+        if (query != null) {
+            deleteUrl = String.format("%s?%s", url, query);
+        }
+        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(deleteUrl, apiKey, "DELETE", vcr);
         conn.setRequestMethod("DELETE");
         return conn;
     }
 
     private static javax.net.ssl.HttpsURLConnection createPutConnection(final String url, final JsonObject body,
-                                                                        final String apiKey) throws IOException {
-        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(url, apiKey);
+                                                                        final String apiKey, final VCR vcr) throws IOException {
+        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(url, apiKey, "PUT", vcr);
         conn.setRequestMethod("PUT");
-        writeBody(conn, body);
+        conn = writeBody(conn, body);
         return conn;
     }
 
@@ -282,22 +302,22 @@ public abstract class EasyPostResource {
 
     private static EasyPostResponse makeURLConnectionRequest(final EasyPostResource.RequestMethod method,
                                                              final String url, final String query,
-                                                             final JsonObject body, final String apiKey)
+                                                             final JsonObject body, final String apiKey, final VCR vcr)
             throws EasyPostException {
         javax.net.ssl.HttpsURLConnection conn = null;
         try {
             switch (method) {
                 case GET:
-                    conn = createGetConnection(url, query, apiKey);
+                    conn = createGetConnection(url, query, apiKey, vcr);
                     break;
                 case POST:
-                    conn = createPostConnection(url, body, apiKey);
+                    conn = createPostConnection(url, body, apiKey, vcr);
                     break;
                 case PUT:
-                    conn = createPutConnection(url, body, apiKey);
+                    conn = createPutConnection(url, body, apiKey, vcr);
                     break;
                 case DELETE:
-                    conn = createDeleteConnection(url, query, apiKey);
+                    conn = createDeleteConnection(url, query, apiKey, vcr);
                     break;
                 default:
                     throw new EasyPostException(
@@ -409,7 +429,7 @@ public abstract class EasyPostResource {
         EasyPostResponse response;
         try {
             // HTTPSURLConnection verifies SSL cert by default
-            response = makeURLConnectionRequest(method, url, query, body, apiKey);
+            response = makeURLConnectionRequest(method, url, query, body, apiKey, EasyPost.vcr);
         } catch (ClassCastException ce) {
             // appengine
             String appEngineEnv = System.getProperty("com.google.appengine.runtime.environment", null);

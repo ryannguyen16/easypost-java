@@ -59,6 +59,11 @@
             <version>2.2</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.easypost</groupId>
+            <artifactId>easyvcr</artifactId>
+            <version>0.1.0</version>
+        </dependency>
     </dependencies>
 
     <organization>
@@ -140,7 +145,6 @@
                     <source>8</source>
                     <doclint>-html</doclint>
                     <quiet>true</quiet>
-                    <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
                 <version>3.3.1</version>
                 <executions>

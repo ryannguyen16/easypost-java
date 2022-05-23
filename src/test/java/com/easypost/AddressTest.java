@@ -1,21 +1,22 @@
 package com.easypost;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-
 import com.easypost.exception.EasyPostException;
 import com.easypost.model.Address;
 import com.easypost.model.AddressCollection;
-
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AddressTest {
-    private static Address globalAddress;
+    private static TestUtils.VCR _vcr;
 
     /**
      * Setup the testing environment for this file.
@@ -24,9 +25,11 @@ public class AddressTest {
      */
     @BeforeAll
     public static void setup() throws EasyPostException{
-        EasyPost.apiKey = System.getenv("EASYPOST_TEST_API_KEY");
+        _vcr = new TestUtils.VCR("address", TestUtils.ApiKey.TEST);
+    }
 
-        globalAddress = Address.create(Fixture.basicAddress());
+    public static Address createBasicAddress() throws EasyPostException {
+        return Address.create(Fixture.basicAddress());
     }
 
     /**
@@ -36,7 +39,9 @@ public class AddressTest {
      */
     @Test
     public void testCreate() throws EasyPostException {
-        Address address = Address.create(Fixture.basicAddress());
+        _vcr.setUpTest("create");
+
+        Address address = createBasicAddress();
 
         assertTrue(address instanceof Address);
         assertEquals("388 Townsend St", address.getStreet1());
@@ -70,11 +75,13 @@ public class AddressTest {
      */
     @Test
     public void testRetrieve() throws EasyPostException{
-        Address retrievedAddress = Address.retrieve(globalAddress.getId());
+        Address address = createBasicAddress();
+        Address retrievedAddress = Address.retrieve(address.getId());
 
         assertTrue(retrievedAddress instanceof Address);
         assertTrue(retrievedAddress.getId().startsWith("adr_"));
-        assertThat(globalAddress).usingRecursiveComparison().isEqualTo(retrievedAddress);
+        assertEquals(address.getId(), retrievedAddress.getId());
+
     }
 
     /**
@@ -84,6 +91,8 @@ public class AddressTest {
      */
     @Test
     public void testAll() throws EasyPostException{
+        _vcr.setUpTest("all");
+
         Map<String, Object> params = new HashMap<>();
 
         params.put("page_size", Fixture.pageSize());
@@ -141,10 +150,11 @@ public class AddressTest {
      */
     @Test
     public void testVerify() throws EasyPostException {
-        globalAddress = globalAddress.verify();
+        Address address = createBasicAddress();
+        address.verify();
 
-        assertTrue(globalAddress instanceof Address);
-        assertTrue(globalAddress.getId().startsWith("adr_"));
-        assertEquals("388 TOWNSEND ST APT 20", globalAddress.getStreet1());
+        assertTrue(address instanceof Address);
+        assertTrue(address.getId().startsWith("adr_"));
+        assertEquals("388 TOWNSEND ST APT 20", address.getStreet1());
     }
 }

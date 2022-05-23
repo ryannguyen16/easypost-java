@@ -1,24 +1,26 @@
 package com.easypost;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-
 import com.easypost.exception.EasyPostException;
-import com.easypost.model.CarrierType;
 import com.easypost.model.CarrierAccount;
-
-import org.junit.jupiter.api.Test;
+import com.easypost.model.CarrierType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.MethodOrderer;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class CarrierAccountTest {
-    private static CarrierAccount globalCarrierAccount;
+
+    private static TestUtils.VCR _vcr;
 
     /**
      * Setup the testing environment for this file.
@@ -27,9 +29,11 @@ public class CarrierAccountTest {
      */
     @BeforeAll
     public static void setup() throws EasyPostException {
-        EasyPost.apiKey = System.getenv("EASYPOST_PROD_API_KEY");
+        _vcr = new TestUtils.VCR("address", TestUtils.ApiKey.PRODUCTION);
+    }
 
-        globalCarrierAccount = CarrierAccount.create(Fixture.basicCarrierAccount());
+    private static CarrierAccount createBasicCarrierAccount() throws EasyPostException {
+        return CarrierAccount.create(Fixture.basicCarrierAccount());
     }
 
     /**
@@ -40,6 +44,8 @@ public class CarrierAccountTest {
     @Test
     @Order(1)
     public void testCreate() throws EasyPostException {
+        _vcr.setUpTest("create");
+
         CarrierAccount carrierAccount = CarrierAccount.create(Fixture.basicCarrierAccount());
 
         assertTrue(carrierAccount instanceof CarrierAccount);
@@ -56,11 +62,15 @@ public class CarrierAccountTest {
     @Test
     @Order(2)
     public void testRetrieve() throws EasyPostException {
-        CarrierAccount retrieveCarrierAccount = CarrierAccount.retrieve(globalCarrierAccount.getId());
+        _vcr.setUpTest("retrieve");
+
+        CarrierAccount carrierAccount = createBasicCarrierAccount();
+
+        CarrierAccount retrieveCarrierAccount = CarrierAccount.retrieve(carrierAccount.getId());
 
         assertTrue(retrieveCarrierAccount instanceof CarrierAccount);
         assertTrue(retrieveCarrierAccount.getId().startsWith("ca_"));
-        assertThat(globalCarrierAccount).usingRecursiveComparison().isEqualTo(retrieveCarrierAccount);
+        assertThat(carrierAccount).usingRecursiveComparison().isEqualTo(retrieveCarrierAccount);
     }
 
     /**
@@ -71,6 +81,8 @@ public class CarrierAccountTest {
     @Test
     @Order(3)
     public void testAll() throws EasyPostException {
+        _vcr.setUpTest("all");
+
         List<CarrierAccount> carrierAccounts = CarrierAccount.all(null);
 
         assertTrue(carrierAccounts.stream().allMatch(carrier -> carrier instanceof CarrierAccount));
@@ -84,12 +96,16 @@ public class CarrierAccountTest {
     @Test
     @Order(4)
     public void testUpdate() throws EasyPostException {
+        _vcr.setUpTest("update");
+
+        CarrierAccount carrierAccount = createBasicCarrierAccount();
+
         String testDescription = "My custom description";
         Map<String, Object> updateParams = new HashMap<>();
 
         updateParams.put("description", testDescription);
 
-        CarrierAccount updatedCarrierAccount = globalCarrierAccount.update(updateParams);
+        CarrierAccount updatedCarrierAccount = carrierAccount.update(updateParams);
 
         assertTrue(updatedCarrierAccount instanceof CarrierAccount);
         assertTrue(updatedCarrierAccount.getId().startsWith("ca_"));
@@ -104,9 +120,13 @@ public class CarrierAccountTest {
     @Test
     @Order(5)
     public void testDelete() throws EasyPostException {
-        globalCarrierAccount.delete();
+        _vcr.setUpTest("delete");
 
-        assertTrue(globalCarrierAccount instanceof CarrierAccount);
+        CarrierAccount carrierAccount = createBasicCarrierAccount();
+
+        carrierAccount.delete();
+
+        assertTrue(carrierAccount instanceof CarrierAccount);
     }
 
     /**
@@ -116,6 +136,8 @@ public class CarrierAccountTest {
      */
     @Test
     public void testTypes() throws EasyPostException {
+        _vcr.setUpTest("types");
+
         List<CarrierType> types = CarrierType.all();
 
         assertTrue(types instanceof List);
