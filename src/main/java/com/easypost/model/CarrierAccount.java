@@ -234,7 +234,7 @@ public final class CarrierAccount extends EasyPostResource {
         wrappedParams.put("carrier_account", params);
 
         CarrierAccount response =
-                request(RequestMethod.PUT, instanceURL(CarrierAccount.class, this.getId()), wrappedParams,
+                request(RequestMethod.PATCH, instanceURL(CarrierAccount.class, this.getId()), wrappedParams,
                         CarrierAccount.class, apiKey);
 
         this.merge(this, response);

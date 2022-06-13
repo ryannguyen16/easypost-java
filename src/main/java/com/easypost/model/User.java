@@ -112,7 +112,7 @@ public class User extends BaseUser {
         Map<String, Object> wrappedParams = new HashMap<String, Object>();
         wrappedParams.put("user", params);
 
-        User response = request(RequestMethod.PUT, instanceURL(User.class, this.getId()), wrappedParams, User.class,
+        User response = request(RequestMethod.PATCH, instanceURL(User.class, this.getId()), wrappedParams, User.class,
                 apiKey);
 
         this.merge(this, response);
@@ -184,6 +184,6 @@ public class User extends BaseUser {
         String updateBrandUrl = String.format("%s/brand", instanceURL(User.class, this.getId()));
         Map<String, Object> wrappedParams = new HashMap<String, Object>();
         wrappedParams.put("brand", params);
-        return request(RequestMethod.PUT, updateBrandUrl, wrappedParams, Brand.class, apiKey);
+        return request(RequestMethod.PATCH, updateBrandUrl, wrappedParams, Brand.class, apiKey);
     }
 }

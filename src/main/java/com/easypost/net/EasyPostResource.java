@@ -234,6 +234,13 @@ public abstract class EasyPostResource {
         return conn;
     }
 
+    private static javax.net.ssl.HttpsURLConnection createPatchConnection(final String url, final JsonObject body,
+                                                                        final String apiKey) throws IOException {
+        javax.net.ssl.HttpsURLConnection conn = createEasyPostConnection(url, apiKey, "PATCH");
+        conn = writeBody(conn, body);
+        return conn;
+    }
+
     private static JsonObject createBody(final Map<String, Object> params) {
         Gson gson = new Gson();
         return gson.toJsonTree(params).getAsJsonObject();
@@ -306,6 +313,9 @@ public abstract class EasyPostResource {
                     break;
                 case PUT:
                     conn = createPutConnection(url, body, apiKey);
+                    break;
+                case PATCH:
+                    conn = createPatchConnection(url, body, apiKey);
                     break;
                 case DELETE:
                     conn = createDeleteConnection(url, query, apiKey);
@@ -404,6 +414,15 @@ public abstract class EasyPostResource {
                     }
                     break;
                 case POST:
+                case PATCH:
+                    try {
+                      body = createBody(params);
+                    } catch (Exception e) {
+                       throw new EasyPostException(String.format(
+                        "Unable to create JSON body from parameters. Please email %s for assistance.",
+                        EasyPostResource.EASYPOST_SUPPORT_EMAIL), e);
+                    }   
+                    break;
                 case PUT:
                     try {
                         body = createBody(params);
@@ -833,7 +852,8 @@ public abstract class EasyPostResource {
         GET,
         POST,
         DELETE,
-        PUT
+        PUT,
+        PATCH
     }
 
     @SuppressWarnings ("unused")
